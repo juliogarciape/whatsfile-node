@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.3.0/font/bootstrap-icons.css">
+    <title>Comparte archivos con otros dispositivos &#x1F329;&#xFE0F; | WhatsFile</title>
+</head>
+<body>
+
+    <nav class="navbar navbar-dark bg-secondary">
+        <div class="container-fluid">
+            <a class="navbar-brand fs-3 fw-bold" href="/">
+                &#x1F329;&#xFE0F;
+                WhatsFile
+            </a>
+        </div>
+    </nav>
+
+    <div class="container d-grid gap-4 pt-5 pb-5">
+        <div class="row bg-warning rounded">
+            <p class="fw-bold p-3 mb-0 text-center">¿Buscar compartir tus archivos entre varios dispositivos? Envíalos aquí (almacenamiento temporal)</p>
+        </div>
+        <div class="row shadow-sm p-3 bg-body rounded">
+            <form id="Form">
+                <div class="mb-3">
+                    <input name="password" type="password" class="form-control form-control-lg" placeholder="Ingresa tu clave de descarga" required>
+                </div>
+                <div class="mb-3">
+                    <input id="fileShared" class="form-control" type="file" required>
+                </div>
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-lg btn-outline-primary">Compartir</button>
+                </div>
+            </form>
+        </div>
+        <div class="row">
+            <div id="result"></div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+
+    const form = document.getElementById('Form');
+    const inputFile = document.getElementById('fileShared');
+    const socketId = document.getElementById('socketId');
+    const fileDownload = document.getElementById('download');
+    const listFiles = document.getElementById('result');
+    var socket = io();
+
+    const downloadFile = (file,name,key) => {
+        const userKey = prompt("Ingresa tu clave secreta:");
+        if(key === userKey){
+            let a = document.createElement('a');
+            a.href = file;
+            a.download = name;
+            a.click();
+        }else alert("Clave incorrecta, descarga cancelada");
+    }
+
+    const renderFiles = (items) => {
+        let tableBody = document.getElementById('tableBody');
+        items.forEach(item => {
+            let tr = document.createElement('tr');
+            let blob = new Blob([item.file]);	
+            let url = URL.createObjectURL(blob);
+            
+            tr.innerHTML = `
+            <td>${item.fileName}</td>
+            <td>${item.size} MB</td>
+            <td><span role="button" tabindex="0" class="text-primary text-decoration-underline" onClick="downloadFile('${url}','${item.fileName}','${item.key}')">Aquí</span></td>`;
+            tableBody.appendChild(tr);
+        });
+    }
+
+    socket.on("chat:listfiles", (array) => {
+        listFiles.innerHTML = 
+        `<table class="table text-center">
+            <thead class="table-dark">
+                <tr>
+                    <th scope="col">Nombre del archivo</th>
+                    <th scope="col">Peso</th>
+                    <th scope="col">Descargar <i class="bi bi-arrow-down-circle-fill ms-2"></i></th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+            </tbody>
+        </table>`;
+        renderFiles(array);
+    });
+
+
+    form.addEventListener('submit', (e) => {
+        e.preventDefault();
+
+        const password = e.target.password.value;
+        const file = inputFile.files[0];
+        const fileName = inputFile.files[0].name;
+
+        if(!file){
+            alert("Selecciona tu archivo");
+            return;
+        }
+        
+        const data = {
+            fileName: fileName,
+            file: file,
+            size: Math.round(file.size/1024/1024),
+            key: password
+        }
+
+        if(data.size > 50){
+            alert("El tamaño máximo permitido es de 50 MB");
+            return;
+        }
+
+        socket.emit("chat:whatsfile", data);
+
+    })
+
+    </script>
+</body>
+</html>
